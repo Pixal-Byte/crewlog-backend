@@ -1,0 +1,13 @@
+#Python specific stuff
+.venv/
+__pycache__/
+.pytest_cache/
+
+# secrets and runtime data (the README says .env must stay out of git)
+.env
+data/
+
+# the database and its SQLite side files: never commit these
+*.db
+*.db-wal
+*.db-shm
