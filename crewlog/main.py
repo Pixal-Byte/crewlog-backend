@@ -12,12 +12,12 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 
 class NewMessage(BaseModel):
     name: Name
-    text: Text
+    message: Text
 
 class PublicMessage(BaseModel):
     id: int
     name: str
-    text: str
+    message: str
     created_at: str
 
 def create_app(db_path: str | None = None) -> FastAPI:
@@ -47,7 +47,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/guestbook", status_code=202)
     def create_message(payload: NewMessage, conn=Depends(get_conn)):
-        db.add_message(conn, payload.name, payload.text)
+        db.add_message(conn, payload.name, payload.message)
         return {"status": "pending"}
 
     return app
