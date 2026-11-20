@@ -31,7 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_status_created
 
 def connect(path):
     """Open a connection. Cheap in SQLite, so callers open one per request."""
-    conn = sqlite3.connect(path, timeout=5)  # wait up to 5 s if another writer holds the lock
+    conn = sqlite3.connect(path, timeout=5, check_same_thread=False)  # wait up to 5 s if another writer holds the lock
     conn.row_factory = sqlite3.Row           # rows readable by column name, not just position
     conn.execute("PRAGMA journal_mode = WAL")  # readers and one writer no longer block each other
     return conn
