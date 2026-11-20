@@ -47,7 +47,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/guestbook", status_code=202)
     def create_message(payload: NewMessage, conn=Depends(get_conn)):
-        name = NewMessage.name
-        text = NewMessage.text
+        db.add_message(conn, payload.name, payload.text)
+        return {"status": "pending"}
 
     return app
