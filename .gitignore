@@ -3,6 +3,9 @@
 __pycache__/
 .pytest_cache/
 
+#archived files
+arc/
+
 # secrets and runtime data (the README says .env must stay out of git)
 .env
 data/
