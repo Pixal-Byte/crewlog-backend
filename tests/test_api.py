@@ -12,7 +12,7 @@ def db_path(tmp_path):
 def client(db_path):
     return TestClient(create_app(db_path))
 
-def test_valid_post_is_accepted_but_not_public(client, db_path):
+def test_valid_post_is_accepted_but_not_public(client):
     response = client.post("/api/guestbook", json={"name": "Ada", "message": "hello"})
     assert response.status_code == 202
     assert client.get("/api/guestbook").json() == []
