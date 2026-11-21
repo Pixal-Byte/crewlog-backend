@@ -13,6 +13,7 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 class NewMessage(BaseModel):
     name: Name
     message: Text
+    website: str = ""
 
 class PublicMessage(BaseModel):
     id: int
@@ -47,6 +48,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/guestbook", status_code=202)
     def create_message(payload: NewMessage, conn=Depends(get_conn)):
+        if payload.website.strip():
+            return {"status": "pending"}
+
         db.add_message(conn, payload.name, payload.message)
         return {"status": "pending"}
 
