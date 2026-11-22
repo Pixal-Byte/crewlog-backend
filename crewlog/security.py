@@ -3,6 +3,9 @@ import hmac, hashlib
 def _sign(secret: str, issued: int) -> str:
     return hmac.new(secret.encode(), f"form:{issued}".encode(), hashlib.sha256).hexdigest()
 
+def hash_ip(secret: str, ip: str) -> str:
+    return hmac.new(secret.encode(), b"ip:" + ip.encode(), hashlib.sha256).hexdigest()
+
 def make_token(secret: str, now: float) -> str:
     issued = int(now)
     return f"{issued}.{_sign(secret, issued)}"

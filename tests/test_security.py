@@ -1,5 +1,5 @@
 import pytest
-from crewlog.security import make_token, check_token
+from crewlog.security import make_token, check_token, hash_ip
 
 SECRET = "x" * 40
 T0 = 1_732_271_400
@@ -55,3 +55,24 @@ def test_wrong_secret():
 ])
 def test_garbage(garbage):
     assert check(garbage, T0) in ("malformed", "bad_signature")
+
+
+def test_same_ip_has_the_same_hash():
+    hash_a = hash_ip(SECRET, "1.1.1.1")
+    hash_b = hash_ip(SECRET, "1.1.1.1")
+    assert hash_a == hash_b
+
+def test_different_ips_have_different_hashes():
+    hash_a = hash_ip(SECRET, "1.1.1.1")
+    hash_b = hash_ip(SECRET, "8.8.8.8")
+    assert hash_a != hash_b
+
+def test_different_secrets_have_different_hashes():
+    hash_a = hash_ip(SECRET,   "1.1.1.1")
+    hash_b = hash_ip("y" * 40, "1.1.1.1")
+    assert hash_a != hash_b
+
+def test_output_is_a_sha256_hex_digest():
+    digest = hash_ip(SECRET, "1.1.1.1")
+    assert len(digest) == 64
+    assert set(digest) <= set("0123456789abcdef")
