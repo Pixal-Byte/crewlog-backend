@@ -12,6 +12,12 @@ def conn(tmp_path):
     yield connection
     connection.close()
 
+def backdate(conn, message_id, days):
+    with conn:
+        conn.execute(
+            "UPDATE messages SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?) WHERE id = ?",
+            (f"-{days} days", message_id),
+        )
 
 def test_init_is_idempotent(conn):
     db.init_db(conn)  # second run must not fail or wipe anything
@@ -111,10 +117,7 @@ def test_delete(conn):
 def test_purge_old_ip_hashes_only_touches_old_rows(conn):
     old = db.add_message(conn, "Old", "hello", ip_hash="oldhash")
     new = db.add_message(conn, "New", "hello", ip_hash="newhash")
-    with conn:
-        conn.execute(
-            "UPDATE messages SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-31 days') "
-            "WHERE id = ?", (old,))
+    backdate(conn, old, 31)
     assert db.purge_old_ip_hashes(conn, days=30) == 1
     assert db.get_message(conn, old)["ip_hash"] is None # type: ignore
     assert db.get_message(conn, new)["ip_hash"] == "newhash" # type: ignore
@@ -127,3 +130,23 @@ def test_failed_insert_rolls_back_cleanly(conn):
         db.add_message(conn, "", "bad")
     db.add_message(conn, "Grace", "still works after an error")
     assert len(db.list_messages(conn)) == 2
+
+
+def test_only_matching_hash_is_counted(conn):
+    db.add_message(conn, "Person A", "First", ip_hash="a")
+    db.add_message(conn, "Person B", "Second", ip_hash="b")
+    assert db.count_recent(conn, "a", 300) == 1
+
+
+def test_window_recognition(conn):
+    old = db.add_message(conn, "Ada", "Hello", ip_hash="a")
+    db.add_message(conn, "Ada", "Hello Again", ip_hash="a")
+    backdate(conn, old, 1)
+    assert db.count_recent(conn, "a", 60) == 1
+    assert db.count_recent(conn, "a", 2 * 86400) == 2
+
+def test_rejected_messages_still_count(conn):
+    ids = [db.add_message(conn, "Spam", "buy", ip_hash="a") for _ in range(3)]
+    for message_id in ids:
+        db.set_status(conn, message_id, "rejected")
+    assert db.count_recent(conn, "a", 3600) == 3

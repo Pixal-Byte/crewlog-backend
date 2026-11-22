@@ -122,3 +122,10 @@ def purge_old_ip_hashes(conn, days=30):
             (f"-{int(days)} days",),
         )
     return cur.rowcount
+
+def count_recent(conn, ip_hash, seconds):
+    return conn.execute(
+        "SELECT COUNT(*) FROM messages "
+        "WHERE ip_hash = ? AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)",
+        (ip_hash, f"-{seconds} seconds"),
+    ).fetchone()[0]
