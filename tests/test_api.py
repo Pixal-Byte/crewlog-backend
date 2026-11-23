@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from crewlog.main import create_app
 from crewlog.db import MESSAGE_MAX, NAME_MAX
 from crewlog import db
+from crewlog.security import hash_ip
 
 class FakeClock:
     def __init__(self, now):
@@ -16,15 +17,26 @@ def clock():
 
 @pytest.fixture
 def timed_client(db_path, clock):
-    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, min_age=3, max_age=3600, clock=clock))
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, rate_per_day=1000,rate_per_hour=1000, min_age=3, max_age=3600, clock=clock))
 
 @pytest.fixture
 def client(db_path):
-    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, min_age=0))
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, rate_per_day=1000, rate_per_hour=1000, min_age=0))
+
+@pytest.fixture
+def limited_client(db_path):
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, rate_per_hour=3, rate_per_day=5, min_age=0))
 
 @pytest.fixture
 def db_path(tmp_path):
     return str(tmp_path / "t.db")
+
+def backdate(conn, message_id, seconds):
+    with conn:
+        conn.execute(
+            "UPDATE messages SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?) WHERE id = ?",
+            (f"-{seconds} seconds", message_id),
+        )
 
 @pytest.fixture
 def conn(db_path):
@@ -32,9 +44,14 @@ def conn(db_path):
     yield connection
     connection.close()
 
-def post_message(client, **fields):
+def post_message(client, headers=None, **fields):
     token = client.get("/api/guestbook/token").json()["token"]
-    return client.post("/api/guestbook", json={**fields, "token": token})
+    return client.post("/api/guestbook", json={**fields, "token": token}, headers=headers)
+
+def use_up_allowance(client, ip, n=3):
+    for _ in range(n):
+        assert post_message(client, headers={"CF-Connecting-IP": ip},
+            name="Ada", message="hi").status_code == 202
 
 def test_valid_post_is_accepted_but_not_public(client):
     response = post_message(client, name="Ada", message="hello")
@@ -57,7 +74,8 @@ def test_approved_message_is_public(client, conn):
     {"name": "Ada", "message": ""},
     {"name": "Ada", "message": "  "},
     {"name": "Ada"},
-    {"name": "Ada", "message": "y" * (MESSAGE_MAX + 1)}
+    {"name": "Ada", "message": "y" * (MESSAGE_MAX + 1)},
+    {"name": "Ada", "message": "hi", "extra": "x"}
 ])
 def test_invalid_posts_are_rejected_and_not_stored(client, conn, payload):
     response = client.post("/api/guestbook", json=payload)
@@ -138,3 +156,39 @@ def test_missing_ip_secret_is_refused(db_path, monkeypatch):
 def test_short_ip_secret_is_refused(db_path):
     with pytest.raises(RuntimeError, match="CREWLOG_IP_KEY"):
         create_app(db_path, token_secret_key="x" * 40, ip_secret_key="short")
+
+def test_old_messages_stop_counting(limited_client, conn):
+    ip = {"CF-Connecting-IP": "1.1.1.1"}
+    for _ in range(3):
+        assert post_message(limited_client, headers=ip, name="Ada", message="hi").status_code == 202
+    assert post_message(limited_client, headers=ip, name="Ada", message="hi").status_code == 429
+
+    for m in db.list_messages(conn):
+        backdate(conn, m["id"], 2 * 3600)                    # now outside the hourly window
+
+    assert post_message(limited_client, headers=ip, name="Ada", message="hi").status_code == 202
+
+def test_stored_ip_is_hashed(limited_client, conn):
+    post_message(limited_client, headers={"CF-Connecting-IP": "1.1.1.1"}, name="Ada", message="hi")
+    stored = db.get_message(conn, 1)["ip_hash"] # type: ignore
+    assert stored != "1.1.1.1"
+    assert stored == hash_ip("y" * 40, "1.1.1.1")
+
+def test_allowance(limited_client):
+    ip = "1.1.1.1"
+    use_up_allowance(limited_client, ip)
+    assert post_message(limited_client, headers={"CF-Connecting-IP": ip}, name="Ada", message="hi").status_code == 429
+
+def test_different_ips_have_diferent_allowances(limited_client):
+    ip_a = "1.1.1.1"
+    ip_b = "8.8.8.8"
+    use_up_allowance(limited_client, ip_a)
+    assert post_message(limited_client, headers={"CF-Connecting-IP": ip_b}, name="Ada", message="hi").status_code == 202
+    assert post_message(limited_client, headers={"CF-Connecting-IP": ip_a}, name="Ada", message="hi").status_code == 429
+
+def test_any_message_after_allowance_is_not_stored(limited_client, conn):
+    ip = "1.1.1.1"
+    use_up_allowance(limited_client, ip)
+    response = post_message(limited_client, headers={"CF-Connecting-IP": ip}, name="Ada", message="hi")
+    assert len(db.list_messages(conn)) == 3
+    assert response.headers["retry-after"] == "3600"

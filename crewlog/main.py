@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Query, Response, HTTPException, Request
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, ConfigDict
 
 from crewlog import db, security
 
@@ -13,6 +13,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=db.MESSAGE_MAX)]
 
 class NewMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name:    Name
     message: Text
     website: str   = ""
