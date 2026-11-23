@@ -102,9 +102,9 @@ def create_app(
             raise HTTPException(status_code=400, detail="The form expired or was sent too quickly. Please reload and try again.")
 
         ip_hash = client_hash(request, ip_secret_key, ip_header)
-        if db.count_recent(conn, ip_hash, 3600) > rate_per_hour:
+        if db.count_recent(conn, ip_hash, 3600) >= rate_per_hour:
             raise HTTPException(status_code=429, detail="...", headers={"Retry-After": "3600"})
-        if db.count_recent(conn, ip_hash, 86400) > rate_per_day:
+        if db.count_recent(conn, ip_hash, 86400) >= rate_per_day:
             raise HTTPException(status_code=429, detail="...", headers={"Retry-After": "86400"})
 
         db.add_message(conn, payload.name, payload.message, ip_hash)
