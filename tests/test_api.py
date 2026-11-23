@@ -16,11 +16,11 @@ def clock():
 
 @pytest.fixture
 def timed_client(db_path, clock):
-    return TestClient(create_app(db_path, secret_key="x" * 40, min_age=3, max_age=3600, clock=clock))
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, min_age=3, max_age=3600, clock=clock))
 
 @pytest.fixture
 def client(db_path):
-    return TestClient(create_app(db_path, secret_key="x" * 40, min_age=0))
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, min_age=0))
 
 @pytest.fixture
 def db_path(tmp_path):
@@ -116,16 +116,25 @@ def test_garbage_token(conn, client):
     assert not db.list_messages(conn)
 
 def test_missing_secret_is_refused(db_path, monkeypatch):
-    monkeypatch.delenv("CREWLOG_SECRET", raising=False)
-    with pytest.raises(RuntimeError, match="CREWLOG_SECRET"):
+    monkeypatch.delenv("CREWLOG_TOKEN_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="CREWLOG_TOKEN_KEY"):
         create_app(db_path)
 
 def test_short_secret_is_refused(db_path):
     with pytest.raises(RuntimeError):
-        create_app(db_path, secret_key="short")
+        create_app(db_path, token_secret_key="short")
 
 def test_token_route_returns_a_token_and_is_not_cacheable(timed_client):
     response = timed_client.get("/api/guestbook/token")
     assert response.status_code == 200
     assert response.json()["token"]
     assert response.headers["cache-control"] == "no-store"
+
+def test_missing_ip_secret_is_refused(db_path, monkeypatch):
+    monkeypatch.delenv("CREWLOG_IP_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="CREWLOG_IP_KEY"):
+        create_app(db_path, token_secret_key="x" * 40)
+
+def test_short_ip_secret_is_refused(db_path):
+    with pytest.raises(RuntimeError, match="CREWLOG_IP_KEY"):
+        create_app(db_path, token_secret_key="x" * 40, ip_secret_key="short")
