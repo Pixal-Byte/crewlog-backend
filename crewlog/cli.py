@@ -12,7 +12,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = sub.add_parser("set", help="Set the status of entry of given ID")
     status.add_argument("--id", type=int)
-    status.add_argument("--set", choices=db.STATUSES)
+    status.add_argument("--status", choices=db.STATUSES)
 
     listing = sub.add_parser("list", help="show messages")
     listing.add_argument("--status", default="pending", choices=db.STATUSES)
