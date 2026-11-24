@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Nova Nightingale
 import hmac, hashlib
 
 def _sign(secret: str, issued: int) -> str:

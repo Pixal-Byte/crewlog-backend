@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Nova Nightingale
 import pytest
 from fastapi.testclient import TestClient
 from crewlog.main import create_app
