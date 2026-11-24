@@ -1,9 +1,10 @@
 services:
   crewlog-stack:
     container_name: crewlog
+    user: "1000:1000"
     image: ghcr.io/pixal-byte/crewlog:latest
     volumes:
-      - data:/data
+      - ./data:/app/data
     environment:
       - CREWLOG_TOKEN_KEY=${CREWLOG_TOKEN_KEY}
       - CREWLOG_IP_KEY=${CREWLOG_IP_KEY}
