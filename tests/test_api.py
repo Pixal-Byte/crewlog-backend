@@ -13,7 +13,11 @@ class FakeClock:
 
 @pytest.fixture
 def clock():
-    return FakeClock(1_732_271_400)
+    return FakeClock(1_732_271_324)
+
+@pytest.fixture
+def dev_client(db_path, tmp_path):
+    return TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, dev_static=tmp_path))
 
 @pytest.fixture
 def timed_client(db_path, clock):
@@ -192,3 +196,30 @@ def test_any_message_after_allowance_is_not_stored(limited_client, conn):
     response = post_message(limited_client, headers={"CF-Connecting-IP": ip}, name="Ada", message="hi")
     assert len(db.list_messages(conn)) == 3
     assert response.headers["retry-after"] == "3600"
+
+@pytest.mark.parametrize("route", [
+    "/docs",
+    "/redoc",
+    "/openapi.json"
+])
+def test_default_app_routes(client, route):
+    assert client.get(route).status_code == 404
+
+@pytest.mark.parametrize("route", [
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/api/guestbook"
+])
+def test_dev_static_routes(dev_client, route):
+    assert dev_client.get(route).status_code == 200
+
+def test_dev_static_serves_the_site(db_path, tmp_path):
+    page = tmp_path / "crew-log"
+    page.mkdir()
+    (page / "index.html").write_text("<h1>crew log</h1>")
+
+    client = TestClient(create_app(db_path, token_secret_key="x" * 40, ip_secret_key="y" * 40, dev_static=str(tmp_path)))
+    response = client.get("/crew-log/")
+    assert response.status_code == 200
+    assert "crew log" in response.text
