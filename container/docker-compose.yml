@@ -1,7 +1,7 @@
 services:
   crewlog-stack:
     container_name: crewlog
-    image: crewlog:latest
+    image: ghcr.io/Pixal-Byte/crewlog:latest
     volumes:
       - data:/data
     environment:
