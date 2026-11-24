@@ -1,0 +1,18 @@
+services:
+  crewlog-stack:
+    container_name: crewlog
+    user: "1000:1000"
+    image: ghcr.io/pixal-byte/crewlog:latest
+    volumes:
+      - ./data:/app/data
+    environment:
+      - CREWLOG_TOKEN_KEY=${CREWLOG_TOKEN_KEY}
+      - CREWLOG_IP_KEY=${CREWLOG_IP_KEY}
+      - CREWLOG_RATE_PER_HOUR=3
+      - CREWLOG_RATE_PER_DAY=12
+      - CREWLOG_MIN_AGE=2
+      - CREWLOG_MAX_AGE=3600
+    restart: unless-stopped
+
+volumes:
+  data:

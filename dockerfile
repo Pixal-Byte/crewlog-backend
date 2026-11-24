@@ -1,8 +1,9 @@
-FROM python:3.14
-WORKDIR /
+FROM python:3.14-slim
+WORKDIR /app
+
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY crewlog ./crewlog
-COPY requirements.txt ./requirements.txt
-RUN pip install -r requirements.txt
 
-CMD [ "uvicorn", "crewlog.main:create_app", "--factory", "--port", "8200" ]
+CMD [ "uvicorn", "crewlog.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8200"]
