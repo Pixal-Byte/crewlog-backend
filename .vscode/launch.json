@@ -17,6 +17,8 @@
                 "--reload"
             ],
             "env": {
+                "CREWLOG_DB": "/home/pixal/Code/crewlog-stack/data/crewlog.db",
+                "CREWLOG_DEV_STATIC": "/home/pixal/Code/crewlog-stack/static",
                 "CREWLOG_TOKEN_KEY": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
                 "CREWLOG_IP_KEY": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
             },
